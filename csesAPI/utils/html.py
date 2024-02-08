@@ -29,3 +29,7 @@ def find(element, xpath):
 
 def get_attribute(element: HtmlElement, attribute: str):
     return element.get(attribute)
+
+
+def get_text(element: HtmlElement):
+    return element.text_content()

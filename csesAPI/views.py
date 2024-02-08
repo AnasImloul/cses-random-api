@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view
 from django.http import JsonResponse
 from .models import Problem
-from .serializer import ProblemSerializer
+from .serializer import ProblemSerializer, ProblemDetailsSerializer
 from rest_framework import status
 
 
@@ -14,8 +14,16 @@ def get_problems(request):
 
 @api_view(['GET'])
 def get_problem(request, pk):
+    if not Problem.objects.filter(id=pk).exists():
+        return JsonResponse({'error': 'Problem not found'}, status=status.HTTP_404_NOT_FOUND)
+
     problem = Problem.objects.get(id=pk)
-    serializer = ProblemSerializer(problem)
+
+    if problem.success_rate is None:
+        problem.success_rate = problem.retrieve_success_rate()
+        problem.save()
+
+    serializer = ProblemDetailsSerializer(problem)
     return JsonResponse(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -35,5 +43,10 @@ def get_random_problem(request):
         return JsonResponse({'error': 'No problems found'}, status=status.HTTP_404_NOT_FOUND)
 
     problem = problem.order_by('?').first()
-    serializer = ProblemSerializer(problem)
+
+    if problem.success_rate is None:
+        problem.success_rate = problem.retrieve_success_rate()
+        problem.save()
+
+    serializer = ProblemDetailsSerializer(problem)
     return JsonResponse(serializer.data, status=status.HTTP_200_OK)

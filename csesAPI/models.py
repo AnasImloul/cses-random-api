@@ -1,7 +1,6 @@
 from django.db import models
 from enum import Enum
-from .utils.html import parse_html, find, get_children, get_attribute, to_string
-from requests import get
+from .utils.web import CSESClient
 
 
 class ProblemCategory(Enum):
@@ -24,49 +23,53 @@ class Problem(models.Model):
     url = models.CharField(max_length=256)
     category = models.CharField(max_length=256,
                                 choices=[(category.name, category.value) for category in ProblemCategory])
+    solved_count = models.IntegerField(null=True, blank=True)
+    attempted_count = models.IntegerField(null=True, blank=True)
+    success_rate = models.FloatField(null=True, blank=True)
+
+    @property
+    def difficulty(self):
+        if self.success_rate is None:
+            return None
+        if self.success_rate >= 0.85:
+            return 'Easy'
+        if self.success_rate >= 0.7:
+            return 'Medium'
+        return 'Hard'
 
     def __str__(self):
         return f'{self.id}-{self.title}'
 
-    class Meta:
-        app_label = 'csesAPI'
+    def retrieve_problem_stats(self):
+        stats = CSESClient.retrieve_problem_stats(self.id)
+        if stats is None:
+            return
 
+        self.solved_count = stats.get('solved')
+        self.attempted_count = stats.get('attempted')
+        self.success_rate = stats.get('success_rate')
+        self.save()
 
-def import_problems():
-    problems = retrieve_problems()
-    for problem in problems:
-        if Problem.objects.filter(id=problem['id']).exists():
-            continue
-        Problem.objects.create(id=problem['id'],
-                               title=problem['name'],
-                               url=problem['url'],
-                               category=problem['category'].upper().replace(' ', '_'))
+    @staticmethod
+    def retrieve_problems_stats():
+        problems = Problem.objects.all()
+        for i, problem in enumerate(problems):
+            if problem.solved_count is not None:
+                continue
+            problem.retrieve_problem_stats()
+            print(f'{problem.id} stats retrieved ({i + 1}/{problems.count()})')
 
+    @staticmethod
+    def retrieve_problems():
+        problems = CSESClient.retrieve_problems()
+        for _problem in problems:
+            if Problem.objects.filter(id=_problem['id']).exists():
+                problem = Problem.objects.get(id=_problem['id'])
+            else:
+                problem = Problem.objects.create(id=_problem['id'])
 
-def retrieve_problems():
-    url = 'https://cses.fi/problemset/list/'
+            problem.title = _problem['title']
+            problem.url = _problem['url']
+            problem.category = _problem['category']
 
-    source = get(url).content.decode('utf-8')
-
-    tree = parse_html(source)
-
-    CATEGORY_XPATH_TEMPLATE = '/html/body/div[2]/div[2]/div/h2[ID]'
-    PROBLEMS_XPATH_TEMPLATE = '/html/body/div[2]/div[2]/div/ul[ID]'
-
-    categories = list()
-    i = 2
-    while True:
-        try:
-            category = find(tree, CATEGORY_XPATH_TEMPLATE.replace('ID', str(i))).text
-
-            problems = find(tree, PROBLEMS_XPATH_TEMPLATE.replace('ID', str(i)))
-            for child in get_children(problems):
-                href = get_attribute(find(child, 'a'), 'href')
-                url = f'https://cses.fi{href}'
-                _id = href.split('/')[-1]
-                name = find(child, 'a').text
-                categories.append({'id': _id, 'name': name, 'url': url, 'category': category})
-            i += 1
-        except:
-            break
-    return categories
+        return Problem.objects.all()
