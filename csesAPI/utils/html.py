@@ -27,6 +27,8 @@ def find(element, xpath):
         return None
 
 
+
+
 def get_attribute(element: HtmlElement, attribute: str):
     return element.get(attribute)
 

@@ -16,11 +16,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from .views import get_problems, get_problem, get_random_problem
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from .views import get_problems, get_problem, get_random_problem, get_problem_statement
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('problems/', get_problems),
     path('problems/<int:pk>/', get_problem),
-    path('problems/random/', get_random_problem)
+    path('problems/random/', get_random_problem),
+    path('problems/<int:pk>/statement/', get_problem_statement),
+    path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
+    path('api/schema/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='docs')
 ]
