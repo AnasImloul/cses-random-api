@@ -53,16 +53,14 @@ class CSESClient:
                     title = get_text(find(child, 'a'))
                     stats = get_text(find(child, 'span'))
                     solved, attempts = map(int, stats.split('/'))
-                    success_rate = round(solved / attempts if attempts > 0 else 0, 4)
 
                     result.append({
                         'id': _id,
                         'title': title,
                         'url': url,
                         'category': category,
-                        'solved': solved,
-                        'attempted': attempts,
-                        'success_rate': success_rate
+                        'solved_count': solved,
+                        'attempted_count': attempts,
                     })
             except:
                 break

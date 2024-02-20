@@ -20,43 +20,29 @@ class ProblemCategory(Enum):
 class ProblemStatement(models.Model):
 
     problem = models.ForeignKey('Problem', on_delete=models.CASCADE)
-    statement = models.TextField(null=True, blank=True)
-    input_format = models.TextField(null=True, blank=True)
-    output_format = models.TextField(null=True, blank=True)
-    time_limit = models.IntegerField(null=True, blank=True)
-    memory_limit = models.IntegerField(null=True, blank=True)
-    example_input = models.TextField(null=True, blank=True)
-    example_output = models.TextField(null=True, blank=True)
+    statement = models.TextField(null=False, blank=False)
+    input_format = models.TextField(null=False, blank=False)
+    output_format = models.TextField(null=False, blank=False)
+    time_limit = models.IntegerField(null=False, blank=False)
+    memory_limit = models.IntegerField(null=False, blank=False)
+    constraints = models.TextField(null=False, blank=False)
+    example_input = models.TextField(null=False, blank=False)
+    example_output = models.TextField(null=False, blank=False)
 
     def __str__(self):
         return f'{self.problem.id}-{self.problem.title}'
-
-    def retrieve_problem_statement(self):
-        statement = CSESClient.retrieve_problem_statement(self.problem.id)
-        if statement is None:
-            return
-
-        self.statement = statement.get('statement')
-        self.input_format = statement.get('input_format')
-        self.output_format = statement.get('output_format')
-        self.constraints = statement.get('constraints')
-        self.example_input = statement.get('example_input')
-        self.example_output = statement.get('example_output')
-        self.time_limit = statement.get('time_limit')
-        self.memory_limit = statement.get('memory_limit')
-        self.save()
 
     @staticmethod
     def retrieve_problems_statements():
         problems = Problem.objects.all()
         for i, problem in enumerate(problems):
             if ProblemStatement.objects.filter(problem=problem).exists():
-                problem_statement = ProblemStatement.objects.get(problem=problem)
-            else:
-                problem_statement = ProblemStatement.objects.create(problem=problem)
+                continue
 
-            problem_statement.retrieve_problem_statement()
-            print(f'{problem.id} statement retrieved ({i + 1}/{problems.count()})')
+            statement = CSESClient.retrieve_problem_statement(problem.id)
+
+            problem_statement = ProblemStatement.objects.create(problem=problem, **statement)
+            problem_statement.save()
 
 
 class Problem(models.Model):
@@ -65,8 +51,8 @@ class Problem(models.Model):
     url = models.CharField(max_length=256)
     category = models.CharField(max_length=256,
                                 choices=[(category.name, category.value) for category in ProblemCategory])
-    solved_count = models.IntegerField(null=True, blank=True)
-    attempted_count = models.IntegerField(null=True, blank=True)
+    solved_count = models.IntegerField(null=False)
+    attempted_count = models.IntegerField(null=False)
 
     @property
     def difficulty(self):
@@ -87,34 +73,12 @@ class Problem(models.Model):
     def __str__(self):
         return f'{self.id}-{self.title}'
 
-    def retrieve_problem_stats(self):
-        stats = CSESClient.retrieve_problem_stats(self.id)
-        if stats is None:
-            return
-
-        print(stats)
-
-        self.solved_count = stats.get('solved')
-        self.attempted_count = stats.get('attempted')
-
-        self.save()
-
     @staticmethod
     def retrieve_problems():
         problems = CSESClient.retrieve_problems()
         for _problem in problems:
             if Problem.objects.filter(id=_problem['id']).exists():
-                problem = Problem.objects.get(id=_problem['id'])
-            else:
-                problem = Problem.objects.create(id=_problem['id'])
-
-            problem.title = _problem['title']
-            problem.url = _problem['url']
-            problem.category = _problem['category'].upper().replace(' ', '_')
-            problem.attempted_count = _problem['attempted']
-            problem.solved_count = _problem['solved']
-
+                continue
+            problem = Problem.objects.create(**_problem)
             problem.save()
-
         return Problem.objects.all()
-
